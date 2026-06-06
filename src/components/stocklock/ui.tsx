@@ -122,7 +122,7 @@ export function AuditTimeline({ logs }: { logs: AuditLog[] }) {
           <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
           <div>
             <p className="text-sm font-medium text-gray-900">{log.action}</p>
-            <p className="text-xs text-gray-500">{log.module} · {log.reason || 'No reason'} · {new Date(log.createdAt).toLocaleString()}</p>
+            <p className="text-xs text-gray-500">{log.module} - {log.reason || 'No reason'} - {new Date(log.createdAt).toLocaleString()}</p>
           </div>
         </div>
       ))}
@@ -209,7 +209,7 @@ export function StockMovementTimeline({ movements }: { movements: Array<{ label:
 }
 
 export function BillPreview({ bill }: { bill: Bill }) {
-  return <div className="rounded-lg border bg-white p-5"><p className="font-bold">Tax Invoice {bill.billNumber}</p><p className="mt-2 text-sm text-gray-500">Total Rs {bill.grandTotal.toLocaleString()} · Due Rs {bill.dueAmount.toLocaleString()}</p><p className="mt-4 text-xs text-gray-500">Thank you for choosing Kalra Car Accessories.</p></div>;
+  return <div className="rounded-lg border bg-white p-5"><p className="font-bold">Tax Invoice {bill.billNumber}</p><p className="mt-2 text-sm text-gray-500">Total Rs {bill.grandTotal.toLocaleString()} - Due Rs {bill.dueAmount.toLocaleString()}</p><p className="mt-4 text-xs text-gray-500">Thank you for choosing Kalra Car Accessories.</p></div>;
 }
 
 export function EodBlockingReasons({ reasons }: { reasons: string[] }) {

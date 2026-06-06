@@ -75,7 +75,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <BentoCard title="EOD Lock Status" description={`${getBranchName(blockedEod.branchId)} · cash variance Rs ${blockedEod.cashVariance.toLocaleString()}`}>
+        <BentoCard title="EOD Lock Status" description={`${getBranchName(blockedEod.branchId)} - cash variance Rs ${blockedEod.cashVariance.toLocaleString()}`}>
           <EodBlockingReasons reasons={eodReasons} />
         </BentoCard>
         <BentoCard title="Staff Availability" description="Skill-wise fitter and support staff view.">
@@ -93,7 +93,7 @@ export default function DashboardPage() {
             {lowStock.slice(0, 5).map((stock) => (
               <div key={stock.id} className="rounded-md bg-gray-50 p-3">
                 <p className="text-sm font-semibold text-gray-900">{getProductName(stock.productId)}</p>
-                <p className="text-xs text-gray-500">{getBranchName(stock.branchId)} · available {stock.quantityAvailable}</p>
+                <p className="text-xs text-gray-500">{getBranchName(stock.branchId)} - available {stock.quantityAvailable}</p>
               </div>
             ))}
           </div>

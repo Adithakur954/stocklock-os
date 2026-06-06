@@ -9,11 +9,15 @@ The current implementation runs in demo mode from typed local data in `src/lib/m
 ```bash
 npm install
 npm run dev
+npm run dev:local
 npm run lint
 npm run build
+npm run start:local
 ```
 
-Open `http://localhost:3000/dashboard` for the main owner dashboard.
+Open `http://127.0.0.1:3005/dashboard` for the main owner dashboard when using the Windows launcher.
+
+On Windows, use `RUN-STOCKLOCK.bat` to start the server and open the dashboard automatically. Use `START-STOCKLOCK.bat` when you only want to start the server window.
 
 ## Environment
 
@@ -41,6 +45,10 @@ NEXT_PUBLIC_DEFAULT_BUSINESS_DATE="2026-06-06"
 - Warranty with serial numbers and warranty claim workflow.
 - EOD Closing with cash summary, variance checks, printed-unpaid checks, pending transfer checks, and owner approval hooks.
 - Approvals, Alerts, Audit Log, Reports, and Settings.
+
+## Theme
+
+The dashboard includes a Light/Dark theme toggle in the top bar. The selection is stored in browser local storage under `stocklock-theme`, and the initial theme follows the saved value or the operating system preference.
 
 ## Billing Guard
 

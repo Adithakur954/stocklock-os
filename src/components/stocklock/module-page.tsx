@@ -93,7 +93,7 @@ function productRows() {
     const brand = demoDb.brands.find((item) => item.id === product.brandId)?.name;
     const stock = demoDb.inventoryBalances.filter((balance) => balance.productId === product.id).reduce((sum, balance) => sum + balance.quantityAvailable, 0);
     return [
-      <div key="p"><p className="font-semibold text-gray-950">{product.name}</p><p className="text-xs text-gray-500">{product.sku} · {product.barcode}</p></div>,
+      <div key="p"><p className="font-semibold text-gray-950">{product.name}</p><p className="text-xs text-gray-500">{product.sku} - {product.barcode}</p></div>,
       category,
       brand,
       product.compatibleVehicles.join(', '),
@@ -165,7 +165,7 @@ const pages: Record<ModuleKey, () => ReactElement> = {
   transfers: () => (
     <>
       <PageHeader title="Transfers" description="Dispatch and receive workflow with source/destination stock impact and EOD blocking visibility." action={actionButton('Create transfer')} />
-      <DataTable headers={['Transfer', 'From', 'To', 'Status', 'Timeline']} rows={demoDb.stockTransfers.map((transfer) => [transfer.id, getBranchName(transfer.sourceBranchId), getBranchName(transfer.destinationBranchId), <TransferStatusBadge key="s" status={transfer.status} />, getTransferTimeline(transfer.id).join(' → ')])} />
+      <DataTable headers={['Transfer', 'From', 'To', 'Status', 'Timeline']} rows={demoDb.stockTransfers.map((transfer) => [transfer.id, getBranchName(transfer.sourceBranchId), getBranchName(transfer.destinationBranchId), <TransferStatusBadge key="s" status={transfer.status} />, getTransferTimeline(transfer.id).join(' -> ')])} />
     </>
   ),
   billing: () => {
@@ -223,7 +223,7 @@ const pages: Record<ModuleKey, () => ReactElement> = {
     <>
       <PageHeader title="Customers" description="CRM with phone/vehicle search, spend, credit due, warranty and service history." action={actionButton('Add customer')} />
       <SearchInput placeholder="Search by phone, vehicle number or name..." />
-      <DataTable headers={['Customer', 'Phone', 'Vehicle', 'Spend', 'Credit', 'Tags']} rows={demoDb.customers.map((customer) => [customer.name, customer.phone, `${customer.vehicleNumber} · ${customer.vehicleModel}`, `Rs ${customer.totalSpend.toLocaleString()}`, <CustomerCreditBadge key="c" amount={customer.outstandingBalance} />, customer.tags.join(', ') || '-'])} />
+      <DataTable headers={['Customer', 'Phone', 'Vehicle', 'Spend', 'Credit', 'Tags']} rows={demoDb.customers.map((customer) => [customer.name, customer.phone, `${customer.vehicleNumber} - ${customer.vehicleModel}`, `Rs ${customer.totalSpend.toLocaleString()}`, <CustomerCreditBadge key="c" amount={customer.outstandingBalance} />, customer.tags.join(', ') || '-'])} />
     </>
   ),
   staff: () => (
@@ -236,7 +236,7 @@ const pages: Record<ModuleKey, () => ReactElement> = {
   'service-jobs': () => (
     <>
       <PageHeader title="Service Jobs" description="Installation job cards, fitter assignment, product usage, billing conversion, and customer vehicle history." action={actionButton('Create job card')} />
-      <DataTable headers={['Job', 'Branch', 'Customer', 'Vehicle', 'Status', 'Amount']} rows={demoDb.serviceJobs.map((job) => [job.id, getBranchName(job.branchId), demoDb.customers.find((customer) => customer.id === job.customerId)?.name, `${job.vehicleNumber} · ${job.vehicleModel}`, <StatusBadge key="s" tone={job.status === 'WAITING_PART' ? 'amber' : 'blue'}>{job.status}</StatusBadge>, `Rs ${(job.finalAmount || job.estimatedAmount).toLocaleString()}`])} />
+      <DataTable headers={['Job', 'Branch', 'Customer', 'Vehicle', 'Status', 'Amount']} rows={demoDb.serviceJobs.map((job) => [job.id, getBranchName(job.branchId), demoDb.customers.find((customer) => customer.id === job.customerId)?.name, `${job.vehicleNumber} - ${job.vehicleModel}`, <StatusBadge key="s" tone={job.status === 'WAITING_PART' ? 'amber' : 'blue'}>{job.status}</StatusBadge>, `Rs ${(job.finalAmount || job.estimatedAmount).toLocaleString()}`])} />
     </>
   ),
   warranty: () => (

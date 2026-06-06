@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { demoDb } from '@/lib/mock-data/stocklock-demo-data';
 import { BranchSelector, DateRangePicker } from '@/components/stocklock/ui';
+import { ThemeToggle } from '@/components/stocklock/theme-toggle';
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -91,9 +92,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
         <div className="border-t border-gray-200 p-4">
-          <div className="rounded-lg bg-gray-50 p-3">
+          <div className="space-y-3 rounded-lg bg-gray-50 p-3">
             <p className="text-sm font-semibold">{demoDb.users[0].name}</p>
-            <p className="text-xs text-gray-500">Owner · Full access</p>
+            <p className="text-xs text-gray-500">Owner - Full access</p>
+            <div className="border-t border-gray-200 pt-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Theme</p>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </aside>
@@ -111,6 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex flex-wrap items-center gap-2">
               <BranchSelector branches={demoDb.branches} />
               <DateRangePicker />
+              <ThemeToggle />
               <button className="relative rounded-lg border border-gray-200 bg-white p-2 text-gray-600">
                 <Bell size={18} />
                 {activeAlerts > 0 && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-600" />}
