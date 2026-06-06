@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { db, Product, Branch } from '@/lib/db';
-import { useAuthStore } from '@/store/authStore';
+import { useCallback, useEffect, useState } from 'react';
+import { db, Product, Branch, User } from '@/lib/db';
+import { BranchScope, useAuthStore } from '@/store/authStore';
 import { Receipt, Search } from 'lucide-react';
 
 export default function SalesPage() {
   const user = useAuthStore(state => state.user);
+  const selectedBranchId = useAuthStore(state => state.selectedBranchId);
   const [products, setProducts] = useState<Product[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<{product: Product, quantity: number, price: number}[]>([]);
   const [customerName, setCustomerName] = useState('');
@@ -15,14 +17,18 @@ export default function SalesPage() {
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Card' | 'UPI'>('Cash');
   const [fittingRequired, setFittingRequired] = useState(false);
 
-  useEffect(() => {
-    loadData();
+  const loadData = useCallback(async () => {
+    const [prds, brs] = await Promise.all([
+      db.products.toArray(),
+      db.branches.toArray(),
+    ]);
+    setProducts(prds);
+    setBranches(brs);
   }, []);
 
-  async function loadData() {
-    const prds = await db.products.toArray();
-    setProducts(prds);
-  }
+  useEffect(() => {
+    void Promise.resolve().then(loadData);
+  }, [loadData]);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -60,8 +66,10 @@ export default function SalesPage() {
       alert("Cart is empty");
       return;
     }
-    if (!user?.branchId) {
-      alert("Only branch staff can make a sale.");
+
+    const checkoutBranchId = getCheckoutBranchId(user, selectedBranchId);
+    if (!checkoutBranchId) {
+      alert("Select a shop branch before completing a sale.");
       return;
     }
 
@@ -82,7 +90,7 @@ export default function SalesPage() {
       // Create Sale
       const saleId = await db.sales.add({
         customerId,
-        branchId: user.branchId,
+        branchId: checkoutBranchId,
         totalAmount,
         discount: 0, // Simplified for MVP, handled by custom price per item
         paymentMode,
@@ -100,7 +108,7 @@ export default function SalesPage() {
         });
 
         // Reduce stock logic
-        const stockRecord = await db.stock.where({ productId: item.product.id, branchId: user.branchId }).first();
+        const stockRecord = await db.stock.where({ productId: item.product.id, branchId: checkoutBranchId }).first();
         if (stockRecord) {
           await db.stock.update(stockRecord.id!, {
             quantity: Math.max(0, stockRecord.quantity - item.quantity),
@@ -121,6 +129,10 @@ export default function SalesPage() {
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const checkoutBranchId = getCheckoutBranchId(user, selectedBranchId);
+  const checkoutBranchName = checkoutBranchId
+    ? branches.find((branch) => branch.id === checkoutBranchId)?.name || 'Selected Branch'
+    : 'Select a branch';
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-6 md:flex-row">
@@ -162,6 +174,7 @@ export default function SalesPage() {
             <Receipt size={20} />
             Current Sale
           </h2>
+          <p className="mt-1 text-xs text-gray-500">Selling from {checkoutBranchName}</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -204,7 +217,7 @@ export default function SalesPage() {
             <div className="flex gap-2 text-sm">
               <select 
                 className="flex-1 rounded-lg border p-2"
-                value={paymentMode} onChange={e => setPaymentMode(e.target.value as any)}
+                value={paymentMode} onChange={e => setPaymentMode(e.target.value as 'Cash' | 'Card' | 'UPI')}
               >
                 <option value="Cash">Cash</option>
                 <option value="Card">Card</option>
@@ -224,12 +237,25 @@ export default function SalesPage() {
 
           <button 
             onClick={handleCheckout}
-            className="w-full rounded-lg bg-green-600 py-3 font-bold text-white hover:bg-green-700"
+            disabled={!checkoutBranchId}
+            className="w-full rounded-lg bg-green-600 py-3 font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
           >
-            Complete Sale
+            {checkoutBranchId ? 'Complete Sale' : 'Select Branch to Sell'}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function getCheckoutBranchId(
+  user: User | null,
+  selectedBranchId: BranchScope
+) {
+  if (!user) return undefined;
+  if (user.role === 'Owner') {
+    return selectedBranchId === 'all' ? undefined : selectedBranchId;
+  }
+
+  return user.branchId;
 }

@@ -1,30 +1,43 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { db, Stock, TransferRequest, Sale } from '@/lib/db';
+import { Branch, User, db } from '@/lib/db';
+import { BranchScope, useAuthStore } from '@/store/authStore';
 
 export default function DashboardPage() {
+  const user = useAuthStore((state) => state.user);
+  const selectedBranchId = useAuthStore((state) => state.selectedBranchId);
   const [todaySales, setTodaySales] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [deadStockValue, setDeadStockValue] = useState(0);
   const [actionList, setActionList] = useState<string[]>([]);
+  const [branchLabel, setBranchLabel] = useState('All Branches');
 
   useEffect(() => {
     async function loadMetrics() {
+      const branches = await db.branches.toArray();
+      const scopedBranchId = getScopedBranchId(user, selectedBranchId);
+      setBranchLabel(getBranchLabel(branches, scopedBranchId));
+
       // 1. Today Sales
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const sales = await db.sales.where('createdAt').aboveOrEqual(today).toArray();
+      const allSales = await db.sales.where('createdAt').aboveOrEqual(today).toArray();
+      const sales = scopedBranchId ? allSales.filter((sale) => sale.branchId === scopedBranchId) : allSales;
       const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
       setTodaySales(totalSales);
 
       // 2. Pending Requests
-      const reqs = await db.transferRequests.where('status').equals('Requested').toArray();
+      const allReqs = await db.transferRequests.where('status').equals('Requested').toArray();
+      const reqs = scopedBranchId
+        ? allReqs.filter((request) => request.fromBranchId === scopedBranchId || request.toBranchId === scopedBranchId)
+        : allReqs;
       setPendingRequestsCount(reqs.length);
 
       // 3. Low Stock Items
-      const stock = await db.stock.toArray();
+      const allStock = await db.stock.toArray();
+      const stock = scopedBranchId ? allStock.filter((item) => item.branchId === scopedBranchId) : allStock;
       const lowStockItems = stock.filter(s => s.quantity <= s.minimumRequired);
       setLowStockCount(lowStockItems.length);
 
@@ -62,11 +75,14 @@ export default function DashboardPage() {
     }
 
     loadMetrics();
-  }, []);
+  }, [selectedBranchId, user]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="mt-1 text-sm text-gray-500">Viewing {branchLabel}</p>
+      </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border bg-white p-6 shadow-sm">
@@ -89,7 +105,7 @@ export default function DashboardPage() {
 
       <div className="rounded-xl border bg-white shadow-sm">
         <div className="border-b px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Today's Action List</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Action List</h2>
         </div>
         <div className="p-6">
           <ul className="space-y-3">
@@ -106,4 +122,21 @@ export default function DashboardPage() {
       </div>
     </div>
   );
+}
+
+function getScopedBranchId(
+  user: User | null,
+  selectedBranchId: BranchScope
+) {
+  if (!user) return undefined;
+  if (user.role === 'Owner') {
+    return selectedBranchId === 'all' ? undefined : selectedBranchId;
+  }
+
+  return user.branchId;
+}
+
+function getBranchLabel(branches: Branch[], branchId?: number) {
+  if (!branchId) return 'All Branches';
+  return branches.find((branch) => branch.id === branchId)?.name || 'Selected Branch';
 }

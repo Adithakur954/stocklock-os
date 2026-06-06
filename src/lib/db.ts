@@ -11,6 +11,8 @@ export interface Branch {
   id?: number;
   name: string;
   type: 'Main' | 'Branch';
+  area?: string;
+  phone?: string;
 }
 
 export interface Category {
@@ -136,9 +138,13 @@ export async function seedDatabase() {
   if (branchesCount === 0) {
     console.log('Seeding initial data...');
     // Add Branches
-    const mainId = await db.branches.add({ name: 'Main Warehouse', type: 'Main' });
-    const branchAId = await db.branches.add({ name: 'Branch A', type: 'Branch' });
-    const branchBId = await db.branches.add({ name: 'Branch B', type: 'Branch' });
+    const mainId = await db.branches.add({ name: 'Main Branch (Hub)', type: 'Main', area: 'Naraina', phone: '98100 11111' });
+    const branchAId = await db.branches.add({ name: 'Pitampura', type: 'Branch', area: 'Pitampura', phone: '98100 22222' });
+    const branchBId = await db.branches.add({ name: 'Rohini', type: 'Branch', area: 'Rohini', phone: '98100 33333' });
+    const branchCId = await db.branches.add({ name: 'Dwarka', type: 'Branch', area: 'Dwarka', phone: '98100 44444' });
+    const branchDId = await db.branches.add({ name: 'Janakpuri', type: 'Branch', area: 'Janakpuri', phone: '98100 55555' });
+    const branchEId = await db.branches.add({ name: 'Model Town', type: 'Branch', area: 'Model Town', phone: '98100 66666' });
+    const branchFId = await db.branches.add({ name: 'Lajpat Nagar', type: 'Branch', area: 'Lajpat Nagar', phone: '98100 77777' });
 
     // Add Users
     await db.users.bulkAdd([
@@ -180,9 +186,17 @@ export async function seedDatabase() {
       { productId: prod1Id as number, branchId: mainId as number, quantity: 12, minimumRequired: 5 },
       { productId: prod1Id as number, branchId: branchAId as number, quantity: 2, minimumRequired: 3 },
       { productId: prod1Id as number, branchId: branchBId as number, quantity: 0, minimumRequired: 2 },
+      { productId: prod1Id as number, branchId: branchCId as number, quantity: 3, minimumRequired: 2 },
+      { productId: prod1Id as number, branchId: branchDId as number, quantity: 1, minimumRequired: 2 },
+      { productId: prod1Id as number, branchId: branchEId as number, quantity: 5, minimumRequired: 2 },
+      { productId: prod1Id as number, branchId: branchFId as number, quantity: 2, minimumRequired: 2 },
       { productId: prod2Id as number, branchId: mainId as number, quantity: 8, minimumRequired: 3 },
       { productId: prod2Id as number, branchId: branchAId as number, quantity: 1, minimumRequired: 2 },
       { productId: prod2Id as number, branchId: branchBId as number, quantity: 4, minimumRequired: 2 },
+      { productId: prod2Id as number, branchId: branchCId as number, quantity: 2, minimumRequired: 2 },
+      { productId: prod2Id as number, branchId: branchDId as number, quantity: 0, minimumRequired: 1 },
+      { productId: prod2Id as number, branchId: branchEId as number, quantity: 3, minimumRequired: 2 },
+      { productId: prod2Id as number, branchId: branchFId as number, quantity: 1, minimumRequired: 1 },
     ]);
 
     console.log('Database seeded successfully.');

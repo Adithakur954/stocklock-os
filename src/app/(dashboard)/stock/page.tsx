@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { db, Stock, Product, Branch } from '@/lib/db';
+import { useCallback, useEffect, useState } from 'react';
+import { db, Stock, Product, Branch, User } from '@/lib/db';
 import { Search, ArrowRightLeft } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { BranchScope, useAuthStore } from '@/store/authStore';
+
+type TransferUrgency = 'Low' | 'Medium' | 'High';
 
 export default function StockPage() {
   const user = useAuthStore(state => state.user);
+  const selectedBranchId = useAuthStore(state => state.selectedBranchId);
   const [stockRecords, setStockRecords] = useState<(Stock & { productName: string, branchName: string })[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,11 +17,7 @@ export default function StockPage() {
   const [filterBranchId, setFilterBranchId] = useState<number | 'all'>('all');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     const brs = await db.branches.toArray();
     setBranches(brs);
     const prds = await db.products.toArray();
@@ -31,12 +30,17 @@ export default function StockPage() {
       branchName: brs.find(b => b.id === s.branchId)?.name || 'Unknown'
     }));
 
-    // If user is a branch manager/staff, filter by their branch by default, unless they are owner/main warehouse
-    if (user?.branchId) {
-       setFilterBranchId(user.branchId);
+    if (user?.role === 'Owner') {
+      setFilterBranchId(selectedBranchId);
+    } else if (user?.branchId) {
+      setFilterBranchId(user.branchId);
     }
     setStockRecords(enrichedStks);
-  }
+  }, [selectedBranchId, user]);
+
+  useEffect(() => {
+    void Promise.resolve().then(loadData);
+  }, [loadData]);
 
   const filteredStock = stockRecords.filter(s => {
     const matchesSearch = s.productName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -44,16 +48,19 @@ export default function StockPage() {
     return matchesSearch && matchesBranch;
   });
 
+  const requestBranchId = getRequestBranchId(user, selectedBranchId);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Branch Stock</h1>
         <button 
           onClick={() => setIsTransferModalOpen(true)}
-          className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          disabled={!requestBranchId}
+          className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
         >
           <ArrowRightLeft size={16} />
-          Request Transfer
+          {requestBranchId ? 'Request Transfer' : 'Select Branch to Request'}
         </button>
       </div>
 
@@ -72,7 +79,7 @@ export default function StockPage() {
           className="rounded-lg border bg-white px-3 py-2 text-sm shadow-sm sm:w-48"
           value={filterBranchId}
           onChange={(e) => setFilterBranchId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-          disabled={!!user?.branchId && user.role !== 'Main Branch Manager'} // Lock if normal branch user
+          disabled={user?.role !== 'Owner'}
         >
           <option value="all">All Branches</option>
           {branches.map(b => (
@@ -129,7 +136,7 @@ export default function StockPage() {
         <TransferRequestModal 
           products={products}
           branches={branches}
-          userBranchId={user?.branchId}
+          userBranchId={requestBranchId}
           onClose={() => setIsTransferModalOpen(false)}
           onSuccess={() => {
             setIsTransferModalOpen(false);
@@ -139,6 +146,18 @@ export default function StockPage() {
       )}
     </div>
   );
+}
+
+function getRequestBranchId(
+  user: User | null,
+  selectedBranchId: BranchScope
+) {
+  if (!user) return undefined;
+  if (user.role === 'Owner') {
+    return selectedBranchId === 'all' ? undefined : selectedBranchId;
+  }
+
+  return user.branchId;
 }
 
 function TransferRequestModal({ 
@@ -154,11 +173,17 @@ function TransferRequestModal({
   onClose: () => void, 
   onSuccess: () => void 
 }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    productId: number;
+    fromBranchId: number;
+    quantity: number;
+    urgency: TransferUrgency;
+    note: string;
+  }>({
     productId: products[0]?.id || 0,
     fromBranchId: branches[0]?.id || 0,
     quantity: 1,
-    urgency: 'Medium' as const,
+    urgency: 'Medium',
     note: ''
   });
 
@@ -221,7 +246,7 @@ function TransferRequestModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Urgency</label>
-              <select className="mt-1 w-full rounded-md border p-2" value={formData.urgency} onChange={e => setFormData({...formData, urgency: e.target.value as any})}>
+              <select className="mt-1 w-full rounded-md border p-2" value={formData.urgency} onChange={e => setFormData({...formData, urgency: e.target.value as TransferUrgency})}>
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
                 <option value="High">High</option>
