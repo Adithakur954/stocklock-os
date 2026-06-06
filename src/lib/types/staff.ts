@@ -1,6 +1,7 @@
 export type StaffSkill = 'Sales' | 'Fitter' | 'Wiring Expert' | 'Audio Installer' | 'Seat Cover Installer' | 'Helper' | 'Driver' | 'Accountant';
 export type StaffAvailabilityStatus = 'FREE' | 'BUSY' | 'ON_TRANSFER' | 'ON_LEAVE' | 'OFF_DUTY';
 export type StaffRequestStatus = 'OPEN' | 'ACCEPTED' | 'REJECTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type QualityCheckStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'REWORK_REQUIRED';
 
 export interface StaffStatus {
   id: string;
@@ -43,6 +44,12 @@ export interface ServiceJob {
   estimatedAmount: number;
   finalAmount?: number;
   linkedBillId?: string;
+  beforeInstallPhotos: string[];
+  afterInstallPhotos: string[];
+  billPhotoUrl?: string;
+  partsIssuedCount: number;
+  partsBilledCount: number;
+  qualityCheckStatus: QualityCheckStatus;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;

@@ -3,6 +3,7 @@ import { GuardResult } from '@/lib/types/core';
 import { EodSession } from '@/lib/types/eod';
 import { StockTransfer } from '@/lib/types/inventory';
 import { BusinessSettings } from '@/lib/types/settings';
+import { isOwnerControlEnabled } from '@/lib/owner-controls';
 
 function result(allowed: boolean, reasons: string[], requiresApproval = false): GuardResult {
   return {
@@ -54,11 +55,11 @@ export function detectUnapprovedStockAdjustments(stockAdjustments: number) {
 
 export function getEodBlockingReasons(session: EodSession, bills: Bill[], transfers: StockTransfer[], settings: BusinessSettings) {
   const reasons: string[] = [];
-  if (detectPendingPrintedBills(bills).length > 0) reasons.push('Day cannot close because printed unpaid bills exist.');
-  if (detectOldDraftBills(bills, settings.draftBillExpiryMinutes).length > 0) reasons.push('Old draft bills must be finalized, cancelled, or approved.');
-  if (settings.transferReceiveRequiredBeforeEod && detectPendingTransfers(transfers).length > 0) reasons.push('Transfer dispatched but not received exists.');
+  if (isOwnerControlEnabled(settings, 'blockEodPrintedUnpaidBills') && detectPendingPrintedBills(bills).length > 0) reasons.push('Day cannot close because printed unpaid bills exist.');
+  if (isOwnerControlEnabled(settings, 'blockEodOldDraftBills') && detectOldDraftBills(bills, settings.draftBillExpiryMinutes).length > 0) reasons.push('Old draft bills must be finalized, cancelled, or approved.');
+  if (isOwnerControlEnabled(settings, 'blockEodPendingTransfers') && settings.transferReceiveRequiredBeforeEod && detectPendingTransfers(transfers).length > 0) reasons.push('Transfer dispatched but not received exists.');
   if (Math.abs(session.cashVariance) > settings.eodCashVarianceThreshold) reasons.push('Cash variance above threshold. Owner approval required.');
-  if (detectUnapprovedStockAdjustments(session.stockAdjustments)) reasons.push('Unapproved stock adjustment exists.');
+  if (isOwnerControlEnabled(settings, 'blockEodUnapprovedStockAdjustments') && detectUnapprovedStockAdjustments(session.stockAdjustments)) reasons.push('Unapproved stock adjustment exists.');
   return reasons;
 }
 

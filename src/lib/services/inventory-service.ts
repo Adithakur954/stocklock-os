@@ -1,6 +1,7 @@
 import { demoDb } from '@/lib/mock-data/stocklock-demo-data';
 import { GuardResult } from '@/lib/types/core';
 import { InventoryBalance, MovementType, StockLedger } from '@/lib/types/inventory';
+import { isOwnerControlEnabled } from '@/lib/owner-controls';
 
 function guard(allowed: boolean, reasons: string[], requiresApproval = false): GuardResult {
   return {
@@ -21,7 +22,9 @@ export function getAvailableStock(branchId: string, productId: string) {
 
 export function canReduceStock(branchId: string, productId: string, qty: number, allowNegativeStock = false): GuardResult {
   const available = getAvailableStock(branchId, productId);
-  if (available - qty < 0 && !allowNegativeStock) return guard(false, ['Negative stock blocked. Owner approval required for override.'], true);
+  const blockNegativeStock = isOwnerControlEnabled(demoDb.settings, 'blockNegativeStock');
+  if (available - qty < 0 && !allowNegativeStock && blockNegativeStock) return guard(false, ['Negative stock blocked. Owner approval required for override.'], true);
+  if (available - qty < 0 && !blockNegativeStock) return guard(true, ['Negative stock allowed by owner.']);
   return guard(true, []);
 }
 

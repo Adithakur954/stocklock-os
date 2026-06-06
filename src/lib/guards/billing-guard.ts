@@ -2,6 +2,7 @@ import { Bill } from '@/lib/types/billing';
 import { GuardResult, Role } from '@/lib/types/core';
 import { BusinessSettings } from '@/lib/types/settings';
 import { canApproveOverride, canCancelBill as roleCanCancelBill } from '@/lib/permissions';
+import { isOwnerControlEnabled } from '@/lib/owner-controls';
 
 function result(allowed: boolean, reasons: string[], requiresApproval = false): GuardResult {
   return {
@@ -51,6 +52,7 @@ export function canAcceptPayment(bill: Bill): GuardResult {
 }
 
 export function canApplyDiscount(discountPercent: number, settings: BusinessSettings, role: Role): GuardResult {
+  if (!isOwnerControlEnabled(settings, 'highDiscountOwnerApproval')) return result(true, ['High discount approval optional by owner.']);
   if (discountPercent <= settings.maxDiscountPercentWithoutApproval) return result(true, []);
   if (canApproveOverride(role)) return result(true, ['High discount allowed by approver role.']);
   return result(false, [`Discount above ${settings.maxDiscountPercentWithoutApproval}% requires owner approval.`], true);
@@ -79,7 +81,7 @@ export function getBillingGuardViolations(bill: Bill, settings: BusinessSettings
   const reasons: string[] = [];
   if (bill.status === 'PRINTED' && bill.paymentStatus !== 'PAID') reasons.push('Printed but unpaid bill pending.');
   if (bill.lockedByBillingGuard) reasons.push('Billing Guard Active.');
-  if (bill.discountTotal / Math.max(bill.subtotal, 1) * 100 > settings.maxDiscountPercentWithoutApproval) {
+  if (isOwnerControlEnabled(settings, 'highDiscountOwnerApproval') && bill.discountTotal / Math.max(bill.subtotal, 1) * 100 > settings.maxDiscountPercentWithoutApproval) {
     reasons.push('Owner approval required for this action.');
   }
   return result(reasons.length === 0, reasons, reasons.some((reason) => reason.includes('Owner approval')));

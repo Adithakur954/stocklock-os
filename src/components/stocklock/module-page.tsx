@@ -27,9 +27,11 @@ import {
 import { getEodBlockingReasons } from '@/lib/eod/eod-lock';
 import { getBillingGuardViolations } from '@/lib/guards/billing-guard';
 import { demoDb, getBranchName, getProductName, getUserName } from '@/lib/mock-data/stocklock-demo-data';
+import { isOwnerControlEnabled, shouldRequireInstallPhotoProof } from '@/lib/owner-controls';
 import { detectDeadStock, detectLowStock } from '@/lib/services/inventory-service';
 import { billingGuardReport, eodReport, exportRowsToCsv, inventoryReport, salesReport } from '@/lib/services/report-service';
 import { getTransferTimeline } from '@/lib/services/transfer-service';
+import { OwnerControlCenter } from '@/components/stocklock/owner-control-center';
 
 export type ModuleKey =
   | 'branches'
@@ -89,17 +91,39 @@ function branchStockRows() {
 
 function productRows() {
   return demoDb.products.map((product) => {
-    const category = demoDb.categories.find((item) => item.id === product.categoryId)?.name;
-    const brand = demoDb.brands.find((item) => item.id === product.brandId)?.name;
     const stock = demoDb.inventoryBalances.filter((balance) => balance.productId === product.id).reduce((sum, balance) => sum + balance.quantityAvailable, 0);
     return [
-      <div key="p"><p className="font-semibold text-gray-950">{product.name}</p><p className="text-xs text-gray-500">{product.sku} - {product.barcode}</p></div>,
-      category,
-      brand,
-      product.compatibleVehicles.join(', '),
-      `Rs ${product.sellingPrice.toLocaleString()}`,
+      <div key="p">
+        <p className="font-semibold text-gray-950">{product.name}</p>
+        <p className="text-xs text-gray-500">{product.productCode} | SKU {product.sku}</p>
+        <p className="text-xs text-gray-500">Barcode {product.barcode}</p>
+      </div>,
+      <div key="codes" className="text-sm">
+        <p>HSN {product.hsnCode}</p>
+        <p className="text-xs text-gray-500">Rack {product.rackLocation}</p>
+      </div>,
+      <div key="cat">
+        <p>{product.category}</p>
+        <p className="text-xs text-gray-500">{product.brand}</p>
+      </div>,
+      <div key="fit">
+        <p>{product.compatibleVehicles.join(', ')}</p>
+        <p className="text-xs text-gray-500">{product.fitmentNotes}</p>
+      </div>,
+      <div key="supplier" className="text-sm">
+        <p>{product.supplierCode}</p>
+        <p className="text-xs text-gray-500">{product.internalCode}</p>
+      </div>,
+      <div key="price" className="text-sm">
+        <p>Sell Rs {product.sellingPrice.toLocaleString()}</p>
+        <p className="text-xs text-gray-500">MRP Rs {product.mrp.toLocaleString()} | GST {product.taxRate}%</p>
+        <p className="text-xs text-gray-500">Install Rs {product.defaultInstallCharge.toLocaleString()}</p>
+      </div>,
       <StockBadge key="s" qty={stock} />,
-      <StatusBadge key="w" tone={product.hasWarranty ? 'blue' : 'gray'}>{product.hasWarranty ? `${product.warrantyMonths} mo warranty` : 'No warranty'}</StatusBadge>,
+      <div key="rules" className="flex flex-col gap-1">
+        <StatusBadge tone={product.hasWarranty ? 'blue' : 'gray'}>{product.hasWarranty ? `${product.warrantyMonths} mo warranty` : 'No warranty'}</StatusBadge>
+        <StatusBadge tone={product.photoProofRequired ? 'amber' : 'green'}>{product.photoProofRequired ? 'Photo proof' : 'No proof'}</StatusBadge>
+      </div>,
     ];
   });
 }
@@ -151,9 +175,9 @@ const pages: Record<ModuleKey, () => ReactElement> = {
   ),
   products: () => (
     <>
-      <PageHeader title="Products" description="Product master with SKU, barcode, category, brand, image, vehicle compatibility, warranty, and branch stock." action={actionButton('Add product')} />
-      <SearchInput placeholder="Search products by name, SKU, barcode, vehicle or brand..." />
-      <DataTable headers={['Product', 'Category', 'Brand', 'Vehicles', 'Sell Price', 'Stock', 'Warranty']} rows={productRows()} />
+      <PageHeader title="Products" description="Product master with product code, SKU, HSN, barcode, rack, supplier code, fitment, warranty, photo proof, and branch stock." action={actionButton('Add product')} />
+      <SearchInput placeholder="Search by product name, SKU, product code, HSN, barcode, vehicle, rack, supplier code, internal code or brand..." />
+      <DataTable headers={['Product', 'HSN / Rack', 'Category / Brand', 'Vehicles / Fitment', 'Supplier / Internal', 'Price / Tax', 'Stock', 'Rules']} rows={productRows()} />
     </>
   ),
   'stock-requests': () => (
@@ -235,8 +259,29 @@ const pages: Record<ModuleKey, () => ReactElement> = {
   ),
   'service-jobs': () => (
     <>
-      <PageHeader title="Service Jobs" description="Installation job cards, fitter assignment, product usage, billing conversion, and customer vehicle history." action={actionButton('Create job card')} />
-      <DataTable headers={['Job', 'Branch', 'Customer', 'Vehicle', 'Status', 'Amount']} rows={demoDb.serviceJobs.map((job) => [job.id, getBranchName(job.branchId), demoDb.customers.find((customer) => customer.id === job.customerId)?.name, `${job.vehicleNumber} - ${job.vehicleModel}`, <StatusBadge key="s" tone={job.status === 'WAITING_PART' ? 'amber' : 'blue'}>{job.status}</StatusBadge>, `Rs ${(job.finalAmount || job.estimatedAmount).toLocaleString()}`])} />
+      <PageHeader title="Service Jobs" description="Installation job cards, fitter assignment, photo proof, product issue, billing conversion, and leakage risk." action={actionButton('Create job card')} />
+      <DataTable headers={['Job', 'Branch', 'Customer', 'Vehicle', 'Status', 'Issued / Billed', 'Proof', 'QC / Risk']} rows={demoDb.serviceJobs.map((job) => [
+        job.id,
+        getBranchName(job.branchId),
+        demoDb.customers.find((customer) => customer.id === job.customerId)?.name,
+        `${job.vehicleNumber} - ${job.vehicleModel}`,
+        <StatusBadge key="s" tone={job.status === 'WAITING_PART' ? 'amber' : 'blue'}>{job.status}</StatusBadge>,
+        `${job.partsIssuedCount} issued / ${job.partsBilledCount} billed`,
+        <div key="proof" className="text-sm">
+          <p>{job.beforeInstallPhotos.length} before, {job.afterInstallPhotos.length} after{job.billPhotoUrl ? ', bill photo' : ''}</p>
+          <p className="text-xs text-gray-500">
+            {isOwnerControlEnabled(demoDb.settings, 'installPhotoProofRequired') ? 'Photo proof required when product needs it' : 'Photo optional by owner'}
+          </p>
+          <p className="text-xs text-gray-500">
+            {isOwnerControlEnabled(demoDb.settings, 'billPhotoRequiredOnJobCard') ? 'Bill photo required' : 'Bill photo optional by owner'}
+          </p>
+        </div>,
+        <div key="risk" className="flex flex-col gap-1">
+          <StatusBadge tone={job.qualityCheckStatus === 'PASSED' ? 'green' : job.qualityCheckStatus === 'FAILED' || job.qualityCheckStatus === 'REWORK_REQUIRED' ? 'red' : 'amber'}>{job.qualityCheckStatus}</StatusBadge>
+          <StatusBadge tone={isOwnerControlEnabled(demoDb.settings, 'qcBeforeVehicleDelivery') ? 'amber' : 'gray'}>{isOwnerControlEnabled(demoDb.settings, 'qcBeforeVehicleDelivery') ? 'QC required' : 'QC optional by owner'}</StatusBadge>
+          <StatusBadge tone={job.partsIssuedCount > job.partsBilledCount ? 'red' : 'green'}>{job.partsIssuedCount > job.partsBilledCount ? 'Billing miss risk' : 'Billing matched'}</StatusBadge>
+        </div>,
+      ])} />
     </>
   ),
   warranty: () => (
@@ -310,14 +355,16 @@ const pages: Record<ModuleKey, () => ReactElement> = {
   'reports-staff': () => <><PageHeader title="Staff Report" description="Availability, requests, assigned jobs and completed jobs." action={exportButton()} /><DataTable headers={['Staff', 'Skill', 'Status', 'Branch']} rows={demoDb.staffStatuses.map((staff) => [getUserName(staff.userId), staff.skill, <StaffStatusBadge key="s" status={staff.status} />, getBranchName(staff.branchId)])} /></>,
   settings: () => (
     <>
-      <PageHeader title="Settings" description="Organization, tax, billing sequence, negative stock, approvals, EOD threshold, print and warranty rules." action={actionButton('Update settings')} />
+      <PageHeader title="Settings" description="Organization, tax, billing sequence, owner controls, EOD threshold, print and warranty rules." action={actionButton('Update settings')} />
+      <OwnerControlCenter changedByUserId={demoDb.users[0].id} />
       <DataTable headers={['Setting', 'Value', 'Rule']} rows={[
         ['Bill prefix', demoDb.settings.billPrefix, 'Sequential bill numbers protected'],
         ['Max discount without approval', `${demoDb.settings.maxDiscountPercentWithoutApproval}%`, 'Higher discount requires owner approval'],
-        ['Allow negative stock', demoDb.settings.allowNegativeStock ? 'Yes' : 'No', 'Negative stock blocked by default'],
+        ['Block negative stock', isOwnerControlEnabled(demoDb.settings, 'blockNegativeStock') ? 'On' : 'Off', isOwnerControlEnabled(demoDb.settings, 'blockNegativeStock') ? 'Negative stock blocked' : 'Negative stock allowed by owner'],
         ['EOD cash variance threshold', `Rs ${demoDb.settings.eodCashVarianceThreshold}`, 'Variance above threshold requires owner approval'],
         ['Draft bill expiry', `${demoDb.settings.draftBillExpiryMinutes} minutes`, 'Old drafts warn and block close'],
         ['Transfer receive before EOD', demoDb.settings.transferReceiveRequiredBeforeEod ? 'Required' : 'Optional', 'Dispatched transfers block close'],
+        ['Install photo proof', shouldRequireInstallPhotoProof(demoDb.settings, demoDb.products[0]) ? 'Required for selected products' : 'Optional by owner', 'Respects owner control and product photoProofRequired'],
       ]} />
     </>
   ),

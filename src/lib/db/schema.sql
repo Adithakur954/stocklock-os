@@ -52,21 +52,40 @@ CREATE TABLE brands (
 
 CREATE TABLE products (
   id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
   category_id TEXT REFERENCES categories(id),
+  category TEXT NOT NULL,
   brand_id TEXT REFERENCES brands(id),
+  brand TEXT NOT NULL,
+  product_code TEXT NOT NULL UNIQUE,
+  hsn_code TEXT NOT NULL,
   sku TEXT NOT NULL UNIQUE,
   barcode TEXT NOT NULL UNIQUE,
+  internal_code TEXT NOT NULL UNIQUE,
+  oem_part_number TEXT,
+  supplier_code TEXT,
+  rack_location TEXT,
   name TEXT NOT NULL,
   description TEXT,
   compatible_vehicles TEXT NOT NULL,
+  fitment_notes TEXT,
+  keywords TEXT,
   purchase_cost NUMERIC(12,2) NOT NULL,
   selling_price NUMERIC(12,2) NOT NULL,
-  minimum_selling_price NUMERIC(12,2) NOT NULL,
+  mrp NUMERIC(12,2) NOT NULL,
+  tax_rate NUMERIC(5,2) NOT NULL DEFAULT 18,
+  default_install_charge NUMERIC(12,2) NOT NULL DEFAULT 0,
+  min_stock INTEGER NOT NULL DEFAULT 0,
   reorder_level INTEGER NOT NULL,
+  is_serialized BOOLEAN NOT NULL DEFAULT FALSE,
   has_warranty BOOLEAN NOT NULL DEFAULT FALSE,
   warranty_months INTEGER NOT NULL DEFAULT 0,
+  photo_proof_required BOOLEAN NOT NULL DEFAULT FALSE,
+  image_url TEXT,
   status TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  last_sold_at TIMESTAMP
 );
 
 CREATE TABLE inventory_balances (
@@ -280,16 +299,29 @@ CREATE TABLE staff_requests (
 
 CREATE TABLE service_jobs (
   id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
   branch_id TEXT NOT NULL REFERENCES branches(id),
   customer_id TEXT REFERENCES customers(id),
   vehicle_number TEXT NOT NULL,
   vehicle_model TEXT NOT NULL,
   job_type TEXT NOT NULL,
   status TEXT NOT NULL,
+  priority TEXT NOT NULL,
   assigned_staff_user_id TEXT REFERENCES users(id),
+  issue_description TEXT,
+  work_description TEXT,
   estimated_amount NUMERIC(12,2) NOT NULL,
   final_amount NUMERIC(12,2),
-  created_at TIMESTAMP NOT NULL
+  linked_bill_id TEXT REFERENCES bills(id),
+  before_install_photos JSON,
+  after_install_photos JSON,
+  bill_photo_url TEXT,
+  parts_issued_count INTEGER NOT NULL DEFAULT 0,
+  parts_billed_count INTEGER NOT NULL DEFAULT 0,
+  quality_check_status TEXT NOT NULL DEFAULT 'PENDING',
+  created_at TIMESTAMP NOT NULL,
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP
 );
 
 CREATE TABLE serial_numbers (
@@ -376,6 +408,28 @@ CREATE TABLE business_settings (
   eod_cash_variance_threshold NUMERIC(12,2) NOT NULL,
   draft_bill_expiry_minutes INTEGER NOT NULL,
   transfer_receive_required_before_eod BOOLEAN NOT NULL DEFAULT TRUE,
+  install_photo_proof_required BOOLEAN NOT NULL DEFAULT TRUE,
+  bill_photo_required_on_job_card BOOLEAN NOT NULL DEFAULT TRUE,
+  qc_before_vehicle_delivery BOOLEAN NOT NULL DEFAULT TRUE,
+  block_eod_printed_unpaid_bills BOOLEAN NOT NULL DEFAULT TRUE,
+  block_eod_old_draft_bills BOOLEAN NOT NULL DEFAULT TRUE,
+  block_eod_pending_transfers BOOLEAN NOT NULL DEFAULT TRUE,
+  block_eod_unapproved_stock_adjustments BOOLEAN NOT NULL DEFAULT TRUE,
+  block_negative_stock BOOLEAN NOT NULL DEFAULT TRUE,
+  high_discount_owner_approval BOOLEAN NOT NULL DEFAULT TRUE,
+  audit_every_override BOOLEAN NOT NULL DEFAULT TRUE,
+  owner_controls_json JSON,
   updated_at TIMESTAMP NOT NULL
 );
 
+CREATE TABLE owner_feature_control_audit (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES organizations(id),
+  control_key TEXT NOT NULL,
+  previous_enabled BOOLEAN NOT NULL,
+  new_enabled BOOLEAN NOT NULL,
+  changed_by_user_id TEXT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,
+  risk_warning TEXT,
+  created_at TIMESTAMP NOT NULL
+);

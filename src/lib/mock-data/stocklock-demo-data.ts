@@ -19,6 +19,7 @@ import { PurchaseBill, PurchaseItem, PurchaseOrder, Vendor } from '@/lib/types/p
 import { ServiceJob, StaffRequest, StaffStatus } from '@/lib/types/staff';
 import { BusinessSettings } from '@/lib/types/settings';
 import { SerialNumber, WarrantyClaim } from '@/lib/types/warranty';
+import { defaultOwnerControls } from '@/lib/owner-controls';
 
 export interface DemoDatabase {
   organization: Organization;
@@ -176,27 +177,52 @@ const productSeed: Array<[string, string, string, string, number, number, number
   ['Installation Service', 'SVC-INSTALL', 'cat_10', 'brand_4', 0, 900, 1200, 0, 0, false, false, ['Universal']],
 ];
 
+const hsnByCategory: Record<string, string> = {
+  cat_1: '8518',
+  cat_2: '8512',
+  cat_3: '8708',
+  cat_4: '8708',
+  cat_5: '8525',
+  cat_6: '8544',
+  cat_7: '3307',
+  cat_8: '8531',
+  cat_9: '8708',
+  cat_10: '9987',
+};
+
 export const demoProducts: Product[] = productSeed.map((item, index) => ({
   id: `prd_${index + 1}`,
   organizationId: orgId,
   name: item[0],
+  productCode: `KCA-${String(index + 1).padStart(4, '0')}`,
+  hsnCode: hsnByCategory[item[2]] || '8708',
   sku: item[1],
   barcode: `89011110${String(index + 1).padStart(3, '0')}`,
+  internalCode: `INT-${item[1]}-${String(index + 1).padStart(2, '0')}`,
+  oemPartNumber: `${item[1]}-OEM`,
+  supplierCode: `SUP-${item[3].replace('brand_', 'B')}-${String(index + 1).padStart(3, '0')}`,
+  rackLocation: index === 19 ? 'SERVICE-DESK' : `${String.fromCharCode(65 + (index % 5))}-${Math.floor(index / 5) + 1}-${(index % 4) + 1}`,
   categoryId: item[2],
+  category: demoCategories.find((category) => category.id === item[2])?.name || 'General',
   brandId: item[3],
+  brand: demoBrands.find((brand) => brand.id === item[3])?.name || 'Generic',
   imageUrl: `/next.svg`,
   description: `${item[0]} for fast retail billing and fitment workflows.`,
   compatibleVehicles: item[11],
+  fitmentNotes: item[11].includes('Universal') ? 'Universal fitment. Confirm wiring and panel condition before installation.' : `Best fit for ${item[11].join(', ')}. Verify trim variant before installation.`,
+  keywords: [item[0], item[1], item[2], item[3], ...item[11]].map((value) => value.toLowerCase()),
   unit: index === 19 ? 'Service' : 'Piece',
   taxRate: 18,
   purchaseCost: item[4],
   sellingPrice: item[5],
   mrp: item[6],
+  defaultInstallCharge: index === 19 ? item[5] : item[9] || item[0].includes('Camera') || item[0].includes('Locking') || item[0].includes('Sensor') ? 700 : 0,
   minStock: item[7],
   reorderLevel: item[8],
   isSerialized: item[9],
   hasWarranty: item[10],
   warrantyMonths: item[10] ? 12 : 0,
+  photoProofRequired: index === 19 || item[9] || item[0].includes('Camera') || item[0].includes('Locking') || item[0].includes('Sensor'),
   status: 'ACTIVE',
   createdAt: '2026-05-01T09:00:00.000Z',
   updatedAt: '2026-06-06T09:00:00.000Z',
@@ -322,8 +348,49 @@ export const demoStaffRequests: StaffRequest[] = [
 ];
 
 export const demoServiceJobs: ServiceJob[] = [
-  { id: 'job_1', organizationId: orgId, branchId: 'br_workshop', customerId: 'cust_1', vehicleNumber: 'DL8C AX 9090', vehicleModel: 'Hyundai Creta', assignedStaffId: 'usr_pawan', status: 'IN_PROGRESS', priority: 'CUSTOMER_WAITING', issueDescription: 'Android stereo and camera fitment', workDescription: 'Dashboard panel open, wiring in progress', estimatedAmount: 10620, finalAmount: 10620, linkedBillId: 'bill_4', createdAt: '2026-06-06T12:30:00.000Z', startedAt: '2026-06-06T12:45:00.000Z' },
-  { id: 'job_2', organizationId: orgId, branchId: 'br_city', customerId: 'cust_3', vehicleNumber: 'DL3C BE 4000', vehicleModel: 'Maruti Swift', status: 'WAITING_PART', priority: 'HIGH', issueDescription: 'Parking sensor install', workDescription: 'Waiting for sensor kit transfer', estimatedAmount: 3776, createdAt: '2026-06-06T09:00:00.000Z' },
+  {
+    id: 'job_1',
+    organizationId: orgId,
+    branchId: 'br_workshop',
+    customerId: 'cust_1',
+    vehicleNumber: 'DL8C AX 9090',
+    vehicleModel: 'Hyundai Creta',
+    assignedStaffId: 'usr_pawan',
+    status: 'IN_PROGRESS',
+    priority: 'CUSTOMER_WAITING',
+    issueDescription: 'Android stereo and camera fitment',
+    workDescription: 'Dashboard panel open, wiring in progress',
+    estimatedAmount: 10620,
+    finalAmount: 10620,
+    linkedBillId: 'bill_4',
+    beforeInstallPhotos: ['/window.svg'],
+    afterInstallPhotos: [],
+    billPhotoUrl: '/file.svg',
+    partsIssuedCount: 3,
+    partsBilledCount: 1,
+    qualityCheckStatus: 'PENDING',
+    createdAt: '2026-06-06T12:30:00.000Z',
+    startedAt: '2026-06-06T12:45:00.000Z',
+  },
+  {
+    id: 'job_2',
+    organizationId: orgId,
+    branchId: 'br_city',
+    customerId: 'cust_3',
+    vehicleNumber: 'DL3C BE 4000',
+    vehicleModel: 'Maruti Swift',
+    status: 'WAITING_PART',
+    priority: 'HIGH',
+    issueDescription: 'Parking sensor install',
+    workDescription: 'Waiting for sensor kit transfer',
+    estimatedAmount: 3776,
+    beforeInstallPhotos: [],
+    afterInstallPhotos: [],
+    partsIssuedCount: 0,
+    partsBilledCount: 0,
+    qualityCheckStatus: 'PENDING',
+    createdAt: '2026-06-06T09:00:00.000Z',
+  },
 ];
 
 export const demoSerialNumbers: SerialNumber[] = [
@@ -381,6 +448,7 @@ export const demoSettings: BusinessSettings = {
   currency: 'INR',
   taxRate: 18,
   printFooter: 'Thank you for choosing Kalra Car Accessories.',
+  ownerControls: defaultOwnerControls,
 };
 
 export const demoDb: DemoDatabase = {

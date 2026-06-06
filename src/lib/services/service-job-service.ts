@@ -11,3 +11,11 @@ export function getPendingServiceJobs() {
 export function getJobsByBranch(branchId: string) {
   return demoDb.serviceJobs.filter((job) => job.branchId === branchId);
 }
+
+export function getBillingMissRiskJobs() {
+  return demoDb.serviceJobs.filter((job) => job.partsIssuedCount > job.partsBilledCount);
+}
+
+export function getJobBillingMissCount() {
+  return getBillingMissRiskJobs().reduce((sum, job) => sum + (job.partsIssuedCount - job.partsBilledCount), 0);
+}
